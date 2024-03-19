@@ -2,7 +2,7 @@ import React from "react";
 import { Table, Button, Space } from "antd";
 import { DeleteOutlined } from "@ant-design/icons";
 import { useSelector, useDispatch } from "react-redux";
-import { deleteFile } from "../Redux/actions"; 
+import { deleteFile } from "../Redux/actions";
 
 const List = () => {
   const filesObject = useSelector((state) => state.files);

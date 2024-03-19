@@ -7,7 +7,7 @@ const Header = () => {
       <div className="logo">
         <h1>Task</h1>
       </div>
-      <nav className="navbar">
+      {/* <nav className="navbar">
         <ul>
           <li>
             <a href="#">Upload</a>
@@ -16,7 +16,7 @@ const Header = () => {
             <a href="#">List</a>
           </li>
         </ul>
-      </nav>
+      </nav> */}
     </div>
   );
 };

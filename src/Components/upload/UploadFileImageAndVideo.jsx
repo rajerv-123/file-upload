@@ -3,7 +3,7 @@ import "./Upload.css";
 import { FiUploadCloud, FiVideo } from "react-icons/fi";
 import Compressor from "compressorjs";
 import Messages from "../Popups/Messages";
-import { Progress } from "antd";
+import { Progress, Modal } from "antd";
 import { Flex } from "antd";
 import { connect } from "react-redux";
 import { uploadFile } from "../Redux/actions";
@@ -15,6 +15,9 @@ const UploadFileImageAndVideo = ({ uploadFile }) => {
   const [progressPercent, setProgressPercent] = useState(0);
   const [selectedFile, setSelectedFile] = useState(null);
   const [compressing, setCompressing] = useState(false);
+  const [uploadDisabled, setUploadDisabled] = useState(true);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalMessage, setModalMessage] = useState("");
 
   const handleRadioChange = (event) => {
     setUploadType(event.target.value);
@@ -22,11 +25,24 @@ const UploadFileImageAndVideo = ({ uploadFile }) => {
 
   const handleFileSelect = (event) => {
     setSelectedFile(event.target.files[0]);
+    setUploadDisabled(false);
+    setErrorMessage("");
+    setSuccessMessage("");
+    setModalVisible(false);
   };
 
   const handleUpload = async () => {
     if (!selectedFile) {
       setErrorMessage("Please select a file to upload.");
+      return;
+    }
+
+    const fileType = selectedFile.type.split("/")[0];
+    if (fileType !== "image") {
+      setModalMessage(
+        "You have selected the wrong file to upload. Please upload an image file."
+      );
+      setModalVisible(true);
       return;
     }
 
@@ -43,65 +59,87 @@ const UploadFileImageAndVideo = ({ uploadFile }) => {
         type: selectedFile.type,
       };
 
-      // here I am Dispatch action to store file information in Redux
       uploadFile(fileInfo);
 
-      setSuccessMessage("File uploaded successfully."); 
+      setSuccessMessage("File uploaded successfully.");
 
-      // Clear success message after 3 seconds
       setTimeout(() => {
         setSuccessMessage("");
       }, 3000);
     } else {
+      setErrorMessage(
+        "File size greater than expected size. Compression in progress"
+      );
       console.log("File size exceeds the limit. Compressing...");
-      setErrorMessage(""); // Clear any previous error messages
+      setErrorMessage("");
 
-      setCompressing(true); // Set compressing state to true
+      setCompressing(true);
 
       console.log("Compressing file...");
       try {
+        let compressedFile;
         if (uploadType === "image") {
-          const compressedFile = await compressFile(selectedFile);
-          const compressedFileSize = compressedFile.size / (1024 * 1024);
-          console.log(
-            "Compressed file size:",
-            compressedFileSize.toFixed(2),
-            "MB"
-          );
-          setSuccessMessage("Image compression successful.");
+          compressedFile = await compressFile(selectedFile);
         } else if (uploadType === "video") {
-          const compressedVideo = await compressVideo(selectedFile);
-          const compressedVideoSize = compressedVideo.size / (1024 * 1024);
-          console.log(
-            "Compressed video size:",
-            compressedVideoSize.toFixed(2),
-            "MB"
+          compressedFile = await compressVideo(selectedFile);
+        }
+
+        const compressedFileSize = compressedFile.size / (1024 * 1024);
+        console.log(
+          "Compressed file size:",
+          compressedFileSize.toFixed(2),
+          "MB"
+        );
+
+        if (compressedFileSize > maxSize) {
+          setErrorMessage(
+            "We could not reduce the file size to the expected value. Please try to upload the file with a size less than or equal to 6MB."
           );
-          setSuccessMessage("Video compression successful.");
+        } else {
+          setSuccessMessage(
+            uploadType === "image"
+              ? "Image compression successful."
+              : "Video compression successful."
+          );
+
+          // Dispatch action to store file information in Redux
+          const fileInfo = {
+            name: selectedFile.name,
+            size: compressedFileSize.toFixed(2) + " MB",
+            type: selectedFile.type,
+          };
+          uploadFile(fileInfo);
+
+          // Clear success message after 3 seconds
+          setTimeout(() => {
+            setSuccessMessage("");
+          }, 3000);
         }
       } catch (error) {
         console.error("Error compressing file:", error);
         setErrorMessage("Error compressing file. Please try again.");
       } finally {
-        setCompressing(false); // Set compressing state to false after compression
+        setCompressing(false);
       }
     }
   };
 
   const compressFile = async (file) => {
     return new Promise((resolve, reject) => {
-      new Compressor(file, {
-        quality: 0.6,
-        success(compressedFile) {
-          resolve(compressedFile);
-        },
-        error(err) {
-          reject(err);
-        },
-        progress(percent) {
-          setProgressPercent(percent); // here i am updating the state
-        },
-      });
+      setTimeout(() => {
+        new Compressor(file, {
+          quality: 0.6,
+          success(compressedFile) {
+            resolve(compressedFile);
+          },
+          error(err) {
+            reject(err);
+          },
+          progress(percent) {
+            setProgressPercent(percent);
+          },
+        });
+      }, 4000);
     });
   };
 
@@ -159,6 +197,14 @@ const UploadFileImageAndVideo = ({ uploadFile }) => {
           </Flex>
         </div>
       )}
+      <Modal
+        title="Error"
+        visible={modalVisible}
+        onCancel={() => setModalVisible(false)}
+        footer={null}
+      >
+        <p style={{ color: "red" }}>{modalMessage}</p>
+      </Modal>
       <div>
         <div className="notification">
           {errorMessage && (
@@ -200,7 +246,9 @@ const UploadFileImageAndVideo = ({ uploadFile }) => {
               accept={uploadType === "image" ? "image/*" : "video/*"}
               onChange={handleFileSelect}
             />
-            <button onClick={handleUpload}>Upload File</button>
+            <button onClick={handleUpload} disabled={uploadDisabled}>
+              Upload File
+            </button>
           </div>
         </div>
       </div>
