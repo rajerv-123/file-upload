@@ -7,6 +7,7 @@ import { Progress, Modal } from "antd";
 import { Flex } from "antd";
 import { connect } from "react-redux";
 import { uploadFile } from "../Redux/actions";
+import { saveAs } from "file-saver"; // Import saveAs from file-saver
 
 const UploadFileImageAndVideo = ({ uploadFile }) => {
   const [uploadType, setUploadType] = useState("image");
@@ -18,6 +19,7 @@ const UploadFileImageAndVideo = ({ uploadFile }) => {
   const [uploadDisabled, setUploadDisabled] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [modalMessage, setModalMessage] = useState("");
+  const [isUploaded, setIsUploaded] = useState(false); // New state variable
 
   const handleRadioChange = (event) => {
     setUploadType(event.target.value);
@@ -29,20 +31,12 @@ const UploadFileImageAndVideo = ({ uploadFile }) => {
     setErrorMessage("");
     setSuccessMessage("");
     setModalVisible(false);
+    setIsUploaded(false); // Reset upload status
   };
 
   const handleUpload = async () => {
     if (!selectedFile) {
       setErrorMessage("Please select a file to upload.");
-      return;
-    }
-
-    const fileType = selectedFile.type.split("/")[0];
-    if (fileType !== "image") {
-      setModalMessage(
-        "You have selected the wrong file to upload. Please upload an image file."
-      );
-      setModalVisible(true);
       return;
     }
 
@@ -57,11 +51,12 @@ const UploadFileImageAndVideo = ({ uploadFile }) => {
         name: selectedFile.name,
         size: fileSize.toFixed(2) + " MB",
         type: selectedFile.type,
+        uploadStatus: true, // Set upload status to true
       };
-
       uploadFile(fileInfo);
 
       setSuccessMessage("File uploaded successfully.");
+      setIsUploaded(true); // Set upload status to true
 
       setTimeout(() => {
         setSuccessMessage("");
@@ -71,9 +66,8 @@ const UploadFileImageAndVideo = ({ uploadFile }) => {
         "File size greater than expected size. Compression in progress"
       );
       console.log("File size exceeds the limit. Compressing...");
-      setErrorMessage("");
-
       setCompressing(true);
+      setProgressPercent(0); // Reset progress percent
 
       console.log("Compressing file...");
       try {
@@ -95,6 +89,7 @@ const UploadFileImageAndVideo = ({ uploadFile }) => {
           setErrorMessage(
             "We could not reduce the file size to the expected value. Please try to upload the file with a size less than or equal to 6MB."
           );
+          saveOriginalFile(selectedFile, uploadType); // Save original file if compression fails
         } else {
           setSuccessMessage(
             uploadType === "image"
@@ -107,19 +102,25 @@ const UploadFileImageAndVideo = ({ uploadFile }) => {
             name: selectedFile.name,
             size: compressedFileSize.toFixed(2) + " MB",
             type: selectedFile.type,
+            uploadStatus: true,
           };
           uploadFile(fileInfo);
+
+          saveCompressedFile(compressedFile, uploadType); // Save compressed file
+          setIsUploaded(true); // Set upload status to true
 
           // Clear success message after 3 seconds
           setTimeout(() => {
             setSuccessMessage("");
-          }, 3000);
+          }, 4000);
         }
       } catch (error) {
         console.error("Error compressing file:", error);
         setErrorMessage("Error compressing file. Please try again.");
+        saveOriginalFile(selectedFile, uploadType); // Save original file if compression fails
       } finally {
         setCompressing(false);
+        setProgressPercent(100); // Set progress to 100 after compression/upload completes
       }
     }
   };
@@ -179,6 +180,27 @@ const UploadFileImageAndVideo = ({ uploadFile }) => {
     });
   };
 
+  const saveOriginalFile = (file, type) => {
+    const savePath = type === "image" ? "C:\\X_File_Image" : "C:\\Y_File_Video";
+    const fileName = file.name.includes(".")
+      ? file.name
+      : `${file.name}.${getFileExtension(file.type)}`;
+    saveAs(file, `${savePath}\\${fileName}`);
+  };
+
+  const saveCompressedFile = (file, type) => {
+    const savePath =
+      type === "image" ? "C:\\X_COMPRESS_IMAGE" : "C:\\Y_COMPRESS_VIDEO";
+    const fileName = file.name.includes(".")
+      ? file.name
+      : `${file.name}.${getFileExtension(file.type)}`;
+    saveAs(file, `${savePath}\\${fileName}`);
+  };
+
+  const getFileExtension = (fileType) => {
+    return fileType.split("/").pop();
+  };
+
   useEffect(() => {
     const timeout = setTimeout(() => {
       setErrorMessage("");
@@ -188,15 +210,11 @@ const UploadFileImageAndVideo = ({ uploadFile }) => {
     return () => clearTimeout(timeout);
   }, [errorMessage, successMessage]);
 
+  const progressStatus =
+    progressPercent === 100 ? "success" : compressing ? "active" : "";
+
   return (
     <div className="upload-main-div">
-      {compressing && (
-        <div className="upload-loading-overlay">
-          <Flex gap="small" wrap="wrap">
-            <Progress type="circle" percent={progressPercent} />
-          </Flex>
-        </div>
-      )}
       <Modal
         title="Error"
         visible={modalVisible}
@@ -216,7 +234,7 @@ const UploadFileImageAndVideo = ({ uploadFile }) => {
         </div>
 
         <div className="upload-container">
-          <h2>Choose Your Upload Type</h2>
+          <h2>File Upload</h2>
           <div className="upload-options">
             <label className="radio-label">
               <input

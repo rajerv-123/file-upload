@@ -1,5 +1,5 @@
 import React from "react";
-import { Table, Button, Space } from "antd";
+import { Table, Button, Space, Card } from "antd";
 import { DeleteOutlined } from "@ant-design/icons";
 import { useSelector, useDispatch } from "react-redux";
 import { deleteFile } from "../Redux/actions";
@@ -20,12 +20,20 @@ const List = () => {
 
   const dataSource = files.map((file, index) => ({
     key: index.toString(),
+    number: index + 1,
     name: file.name,
     type: file.type,
     size: file.size,
   }));
 
   const columns = [
+    {
+      title: "#",
+      dataIndex: "number",
+      key: "number",
+      align: "center",
+      width: 50,
+    },
     {
       title: "Name",
       dataIndex: "name",
@@ -64,14 +72,19 @@ const List = () => {
 
   return (
     <div style={{ padding: 20 }}>
-      <Table
-        dataSource={dataSource}
-        columns={columns}
-        pagination={false}
-        bordered
-        size="middle"
+      <Card
+        title="File List"
         style={{ width: "100%", height: "calc(100vh - 200px)" }}
-      />
+      >
+        <Table
+          dataSource={dataSource}
+          columns={columns}
+          pagination={false}
+          bordered
+          size="middle"
+          scroll={{ y: "calc(100vh - 270px)" }}
+        />
+      </Card>
     </div>
   );
 };
