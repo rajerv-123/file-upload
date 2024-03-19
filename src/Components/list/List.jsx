@@ -1,16 +1,30 @@
 import React from "react";
 import { Table, Button, Space } from "antd";
-import { DeleteOutlined } from "@ant-design/icons"; // Import the delete icon
+import { DeleteOutlined } from "@ant-design/icons";
+import { useSelector, useDispatch } from "react-redux";
+import { deleteFile } from "../Redux/actions"; 
 
 const List = () => {
-  // Sample data for the table
-  const data = [
-    { key: "1", name: "File 1", type: "PDF", size: "2MB" },
-    { key: "2", name: "File 2", type: "Image", size: "5MB" },
-    { key: "3", name: "File 3", type: "Video", size: "10MB" },
-  ];
+  const filesObject = useSelector((state) => state.files);
+  const dispatch = useDispatch();
+  const files = filesObject && filesObject.files;
 
-  // Columns configuration for the table
+  const handleDelete = (record) => {
+    dispatch(deleteFile(record.name));
+  };
+
+  if (!Array.isArray(files)) {
+    console.error("Files is not an array:", files);
+    return null;
+  }
+
+  const dataSource = files.map((file, index) => ({
+    key: index.toString(),
+    name: file.name,
+    type: file.type,
+    size: file.size,
+  }));
+
   const columns = [
     {
       title: "Name",
@@ -41,23 +55,17 @@ const List = () => {
       render: (text, record) => (
         <Space size="middle">
           <Button type="danger" onClick={() => handleDelete(record)}>
-            <DeleteOutlined /> {/* Delete icon */}
+            <DeleteOutlined />
           </Button>
         </Space>
       ),
     },
   ];
 
-  // Function to handle delete button click
-  const handleDelete = (record) => {
-    // Handle delete logic here
-    console.log("Delete clicked for:", record);
-  };
-
   return (
     <div style={{ padding: 20 }}>
       <Table
-        dataSource={data}
+        dataSource={dataSource}
         columns={columns}
         pagination={false}
         bordered
