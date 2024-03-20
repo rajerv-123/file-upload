@@ -3,7 +3,9 @@ import "./Upload.css";
 import { FiUploadCloud, FiVideo } from "react-icons/fi";
 import Compressor from "compressorjs";
 import Messages from "../Popups/Messages";
-import { Progress, Modal } from "antd";
+import CircularProgressWithLabel from "../Popups/CircularProgressWithLabel";
+
+import { Progress, Modal } from "antd"; // Import CircularProgress
 import { connect } from "react-redux";
 import { uploadFile } from "../Redux/actions";
 import { saveAs } from "file-saver";
@@ -38,34 +40,55 @@ const UploadFileImageAndVideo = ({ uploadFile }) => {
       setErrorMessage("Please select a file to upload.");
       return;
     }
-  
+
     const fileSize = selectedFile.size / (1024 * 1024);
     const maxSize = uploadType === "image" ? 2 : 6;
-  
+
     if (fileSize <= maxSize) {
       console.log("File size:", fileSize.toFixed(2), "MB");
       setErrorMessage("");
-  
-      const fileInfo = {
-        name: selectedFile.name,
-        size: fileSize.toFixed(2) + " MB",
-        type: selectedFile.type,
-        uploadStatus: true,
+
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+
+      const xhr = new XMLHttpRequest();
+
+      xhr.upload.addEventListener("progress", (event) => {
+        if (event.lengthComputable) {
+          const percentComplete = (event.loaded / event.total) * 100;
+          setProgressPercent(percentComplete);
+        }
+      });
+
+      xhr.open("POST", "your_upload_endpoint_here");
+
+      xhr.onload = () => {
+        if (xhr.status === 200) {
+          setProgressPercent(100); // Ensure progress is complete
+          setSuccessMessage("File uploaded successfully.");
+          setIsUploaded(true);
+
+          setTimeout(() => {
+            setSuccessMessage("");
+          }, 3000);
+        } else {
+          setErrorMessage("Error uploading file. Please try again.");
+          setIsUploaded(false);
+        }
       };
-      uploadFile(fileInfo);
-  
-      setSuccessMessage("File uploaded successfully.");
-      setIsUploaded(true);
-  
-      setTimeout(() => {
-        setSuccessMessage("");
-      }, 3000);
+
+      xhr.onerror = () => {
+        setErrorMessage("Error uploading file. Please try again.");
+        setIsUploaded(false);
+      };
+
+      xhr.send(formData);
     } else {
-      console.log("File size exceeds the limit. Compressing...");
+      // Handling file size exceeding the limit
       setCompressing(true);
       setProgressPercent(0);
-  
-      console.log("Compressing file...");
+
+      console.log("File size exceeds the limit. Compressing...");
       try {
         let compressedFile;
         if (uploadType === "image") {
@@ -73,33 +96,34 @@ const UploadFileImageAndVideo = ({ uploadFile }) => {
         } else if (uploadType === "video") {
           compressedFile = await compressVideo(selectedFile);
         }
-  
+
+        // Check compressed file size and handle accordingly
         const compressedFileSize = compressedFile.size / (1024 * 1024);
         console.log(
           "Compressed file size:",
           compressedFileSize.toFixed(2),
           "MB"
         );
-  
+
         if (compressedFileSize === fileSize) {
           setErrorMessage(
             "Compression did not reduce the file size. Please try again with a different file."
           );
           setSuccessMessage("");
-          setIsUploaded(false); // Disable download
+          setIsUploaded(false);
         } else if (compressedFileSize > maxSize) {
           setErrorMessage(
             `We could not reduce the file size to the expected value. Please try to upload the file with a size less than or equal to ${maxSize} MB.`
           );
           setSuccessMessage("");
-          setIsUploaded(false); // Disable download
+          setIsUploaded(false);
         } else {
           setSuccessMessage(
             uploadType === "image"
               ? "Image compression successful."
               : "Video compression successful."
           );
-  
+
           // Dispatch action to store file information in Redux
           const fileInfo = {
             name: selectedFile.name,
@@ -108,7 +132,7 @@ const UploadFileImageAndVideo = ({ uploadFile }) => {
             uploadStatus: true,
           };
           uploadFile(fileInfo);
-  
+
           // Compare file sizes before saving
           const originalSize = fileSize;
           if (originalSize !== compressedFileSize) {
@@ -119,9 +143,9 @@ const UploadFileImageAndVideo = ({ uploadFile }) => {
             setErrorMessage(
               "Compression did not reduce the file size. Please try again with a different file."
             );
-            setIsUploaded(false); // Disable download
+            setIsUploaded(false);
           }
-  
+
           setTimeout(() => {
             setSuccessMessage("");
           }, 4000);
@@ -129,14 +153,14 @@ const UploadFileImageAndVideo = ({ uploadFile }) => {
       } catch (error) {
         console.error("Error compressing file:", error);
         setErrorMessage("Error compressing file. Please try again.");
-        setSuccessMessage(""); // Clear success message
-        setIsUploaded(false); // Disable download
+        setSuccessMessage("");
+        setIsUploaded(false);
         saveOriginalFile(selectedFile, uploadType);
       } finally {
         setCompressing(false);
         setProgressPercent(100);
         setSelectedFile(null);
-  
+
         const fileInput = document.getElementById("file-upload");
         if (fileInput) {
           fileInput.value = "";
@@ -144,8 +168,6 @@ const UploadFileImageAndVideo = ({ uploadFile }) => {
       }
     }
   };
-  
-
 
   const compressFile = async (file) => {
     return new Promise((resolve, reject) => {
@@ -215,7 +237,9 @@ const UploadFileImageAndVideo = ({ uploadFile }) => {
     reader.readAsArrayBuffer(file);
   };
 
-  const saveCompressedFile = (file, type) => {
+  const saveCompressedFile = (file, type) => { 
+    // Continued from the previous code
+
     const savePath =
       type === "image" ? "C:\\X_COMPRESS_IMAGE" : "C:\\Y_COMPRESS_VIDEO";
     const fileName = file.name.includes(".")
@@ -242,6 +266,19 @@ const UploadFileImageAndVideo = ({ uploadFile }) => {
 
   return (
     <div className="upload-container">
+      {compressing && (
+        <div className="loader-overlay">
+          <div className="progress-container">
+            <p className="progress-text">Compressing...</p>
+            <Progress
+              type="circle"
+              percent={progressPercent}
+              width={80}
+              format={() => null}
+            />
+          </div>
+        </div>
+      )}
       <div className="centered-container">
         <Modal
           title="Error"
@@ -254,17 +291,21 @@ const UploadFileImageAndVideo = ({ uploadFile }) => {
         <div>
           <div className="notification">
             {errorMessage && (
-              <Messages messageType="error" message={errorMessage} />
+              <div className="error-message">{errorMessage}</div>
             )}
             {successMessage && (
-              <Messages messageType="success" message={successMessage} />
+              <div className="success-message">{successMessage}</div>
             )}
           </div>
 
-          <div className="upload-container">
+          <div className="upload-content">
             <h2>File Upload</h2>
             <div className="upload-options">
-              <label className="radio-label">
+              <label
+                className={`radio-label ${
+                  uploadType === "image" ? "selected" : ""
+                }`}
+              >
                 <input
                   type="radio"
                   value="image"
@@ -274,7 +315,11 @@ const UploadFileImageAndVideo = ({ uploadFile }) => {
                 <FiUploadCloud className="upload-icon" />
                 <span className="upload-text">Image</span>
               </label>
-              <label className="radio-label">
+              <label
+                className={`radio-label ${
+                  uploadType === "video" ? "selected" : ""
+                }`}
+              >
                 <input
                   type="radio"
                   value="video"
@@ -293,18 +338,14 @@ const UploadFileImageAndVideo = ({ uploadFile }) => {
                 onChange={handleFileSelect}
                 value={null}
               />
-              <button onClick={handleUpload} disabled={uploadDisabled}>
+              <button
+                className="upload-button"
+                onClick={handleUpload}
+                disabled={uploadDisabled}
+              >
                 Upload File
               </button>
             </div>
-            {compressing && (
-              <Progress
-                percent={progressPercent}
-                status={progressStatus}
-                strokeLinecap="square"
-                showInfo={false}
-              />
-            )}
           </div>
         </div>
       </div>
