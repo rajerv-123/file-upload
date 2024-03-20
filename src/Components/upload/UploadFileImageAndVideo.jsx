@@ -4,10 +4,9 @@ import { FiUploadCloud, FiVideo } from "react-icons/fi";
 import Compressor from "compressorjs";
 import Messages from "../Popups/Messages";
 import { Progress, Modal } from "antd";
-import { Flex } from "antd";
 import { connect } from "react-redux";
 import { uploadFile } from "../Redux/actions";
-import { saveAs } from "file-saver"; // Import saveAs from file-saver
+import { saveAs } from "file-saver";
 
 const UploadFileImageAndVideo = ({ uploadFile }) => {
   const [uploadType, setUploadType] = useState("image");
@@ -19,7 +18,7 @@ const UploadFileImageAndVideo = ({ uploadFile }) => {
   const [uploadDisabled, setUploadDisabled] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [modalMessage, setModalMessage] = useState("");
-  const [isUploaded, setIsUploaded] = useState(false); // New state variable
+  const [isUploaded, setIsUploaded] = useState(false);
 
   const handleRadioChange = (event) => {
     setUploadType(event.target.value);
@@ -31,7 +30,7 @@ const UploadFileImageAndVideo = ({ uploadFile }) => {
     setErrorMessage("");
     setSuccessMessage("");
     setModalVisible(false);
-    setIsUploaded(false); // Reset upload status
+    setIsUploaded(false);
   };
 
   const handleUpload = async () => {
@@ -39,36 +38,33 @@ const UploadFileImageAndVideo = ({ uploadFile }) => {
       setErrorMessage("Please select a file to upload.");
       return;
     }
-
+  
     const fileSize = selectedFile.size / (1024 * 1024);
     const maxSize = uploadType === "image" ? 2 : 6;
-
+  
     if (fileSize <= maxSize) {
       console.log("File size:", fileSize.toFixed(2), "MB");
       setErrorMessage("");
-
+  
       const fileInfo = {
         name: selectedFile.name,
         size: fileSize.toFixed(2) + " MB",
         type: selectedFile.type,
-        uploadStatus: true, // Set upload status to true
+        uploadStatus: true,
       };
       uploadFile(fileInfo);
-
+  
       setSuccessMessage("File uploaded successfully.");
-      setIsUploaded(true); // Set upload status to true
-
+      setIsUploaded(true);
+  
       setTimeout(() => {
         setSuccessMessage("");
       }, 3000);
     } else {
-      setErrorMessage(
-        "File size greater than expected size. Compression in progress"
-      );
       console.log("File size exceeds the limit. Compressing...");
       setCompressing(true);
-      setProgressPercent(0); // Reset progress percent
-
+      setProgressPercent(0);
+  
       console.log("Compressing file...");
       try {
         let compressedFile;
@@ -77,26 +73,33 @@ const UploadFileImageAndVideo = ({ uploadFile }) => {
         } else if (uploadType === "video") {
           compressedFile = await compressVideo(selectedFile);
         }
-
+  
         const compressedFileSize = compressedFile.size / (1024 * 1024);
         console.log(
           "Compressed file size:",
           compressedFileSize.toFixed(2),
           "MB"
         );
-
-        if (compressedFileSize > maxSize) {
+  
+        if (compressedFileSize === fileSize) {
           setErrorMessage(
-            "We could not reduce the file size to the expected value. Please try to upload the file with a size less than or equal to 6MB."
+            "Compression did not reduce the file size. Please try again with a different file."
           );
-          saveOriginalFile(selectedFile, uploadType); // Save original file if compression fails
+          setSuccessMessage("");
+          setIsUploaded(false); // Disable download
+        } else if (compressedFileSize > maxSize) {
+          setErrorMessage(
+            `We could not reduce the file size to the expected value. Please try to upload the file with a size less than or equal to ${maxSize} MB.`
+          );
+          setSuccessMessage("");
+          setIsUploaded(false); // Disable download
         } else {
           setSuccessMessage(
             uploadType === "image"
               ? "Image compression successful."
               : "Video compression successful."
           );
-
+  
           // Dispatch action to store file information in Redux
           const fileInfo = {
             name: selectedFile.name,
@@ -105,11 +108,20 @@ const UploadFileImageAndVideo = ({ uploadFile }) => {
             uploadStatus: true,
           };
           uploadFile(fileInfo);
-
-          saveCompressedFile(compressedFile, uploadType); // Save compressed file
-          setIsUploaded(true); // Set upload status to true
-
-          // Clear success message after 3 seconds
+  
+          // Compare file sizes before saving
+          const originalSize = fileSize;
+          if (originalSize !== compressedFileSize) {
+            // Download the compressed file
+            saveCompressedFile(compressedFile, uploadType);
+            setIsUploaded(true);
+          } else {
+            setErrorMessage(
+              "Compression did not reduce the file size. Please try again with a different file."
+            );
+            setIsUploaded(false); // Disable download
+          }
+  
           setTimeout(() => {
             setSuccessMessage("");
           }, 4000);
@@ -117,13 +129,23 @@ const UploadFileImageAndVideo = ({ uploadFile }) => {
       } catch (error) {
         console.error("Error compressing file:", error);
         setErrorMessage("Error compressing file. Please try again.");
-        saveOriginalFile(selectedFile, uploadType); // Save original file if compression fails
+        setSuccessMessage(""); // Clear success message
+        setIsUploaded(false); // Disable download
+        saveOriginalFile(selectedFile, uploadType);
       } finally {
         setCompressing(false);
-        setProgressPercent(100); // Set progress to 100 after compression/upload completes
+        setProgressPercent(100);
+        setSelectedFile(null);
+  
+        const fileInput = document.getElementById("file-upload");
+        if (fileInput) {
+          fileInput.value = "";
+        }
       }
     }
   };
+  
+
 
   const compressFile = async (file) => {
     return new Promise((resolve, reject) => {
@@ -185,7 +207,12 @@ const UploadFileImageAndVideo = ({ uploadFile }) => {
     const fileName = file.name.includes(".")
       ? file.name
       : `${file.name}.${getFileExtension(file.type)}`;
-    saveAs(file, `${savePath}\\${fileName}`);
+    const reader = new FileReader();
+    reader.onload = function (event) {
+      const blob = new Blob([new Uint8Array(event.target.result)]);
+      saveAs(blob, `${savePath}\\${fileName}`);
+    };
+    reader.readAsArrayBuffer(file);
   };
 
   const saveCompressedFile = (file, type) => {
@@ -214,59 +241,70 @@ const UploadFileImageAndVideo = ({ uploadFile }) => {
     progressPercent === 100 ? "success" : compressing ? "active" : "";
 
   return (
-    <div className="upload-main-div">
-      <Modal
-        title="Error"
-        visible={modalVisible}
-        onCancel={() => setModalVisible(false)}
-        footer={null}
-      >
-        <p style={{ color: "red" }}>{modalMessage}</p>
-      </Modal>
-      <div>
-        <div className="notification">
-          {errorMessage && (
-            <Messages messageType="error" message={errorMessage} />
-          )}
-          {successMessage && (
-            <Messages messageType="success" message={successMessage} />
-          )}
-        </div>
-
-        <div className="upload-container">
-          <h2>File Upload</h2>
-          <div className="upload-options">
-            <label className="radio-label">
-              <input
-                type="radio"
-                value="image"
-                checked={uploadType === "image"}
-                onChange={handleRadioChange}
-              />
-              <FiUploadCloud className="upload-icon" />
-              <span className="upload-text">Image</span>
-            </label>
-            <label className="radio-label">
-              <input
-                type="radio"
-                value="video"
-                checked={uploadType === "video"}
-                onChange={handleRadioChange}
-              />
-              <FiVideo className="upload-icon" />
-              <span className="upload-text">Video</span>
-            </label>
+    <div className="upload-container">
+      <div className="centered-container">
+        <Modal
+          title="Error"
+          visible={modalVisible}
+          onCancel={() => setModalVisible(false)}
+          footer={null}
+        >
+          <p style={{ color: "red" }}>{modalMessage}</p>
+        </Modal>
+        <div>
+          <div className="notification">
+            {errorMessage && (
+              <Messages messageType="error" message={errorMessage} />
+            )}
+            {successMessage && (
+              <Messages messageType="success" message={successMessage} />
+            )}
           </div>
-          <div className="file-upload">
-            <input
-              type="file"
-              id="file-upload"
-              accept={uploadType === "image" ? "image/*" : "video/*"}
-              onChange={handleFileSelect}
-            />
-            <button onClick={handleUpload} disabled={uploadDisabled}>
-              Upload File
-            </button>
+
+          <div className="upload-container">
+            <h2>File Upload</h2>
+            <div className="upload-options">
+              <label className="radio-label">
+                <input
+                  type="radio"
+                  value="image"
+                  checked={uploadType === "image"}
+                  onChange={handleRadioChange}
+                />
+                <FiUploadCloud className="upload-icon" />
+                <span className="upload-text">Image</span>
+              </label>
+              <label className="radio-label">
+                <input
+                  type="radio"
+                  value="video"
+                  checked={uploadType === "video"}
+                  onChange={handleRadioChange}
+                />
+                <FiVideo className="upload-icon" />
+                <span className="upload-text">Video</span>
+              </label>
+            </div>
+            <div className="file-upload">
+              <input
+                type="file"
+                id="file-upload"
+                accept={uploadType === "image" ? "image/*" : "video/*"}
+                onChange={handleFileSelect}
+                value={null}
+              />
+              <button onClick={handleUpload} disabled={uploadDisabled}>
+                Upload File
+              </button>
+            </div>
+            {compressing && (
+              <Progress
+                percent={progressPercent}
+                status={progressStatus}
+                strokeLinecap="square"
+                showInfo={false}
+              />
+            )}
           </div>
         </div>
       </div>

@@ -1,3 +1,5 @@
+/* Upload.css */
+
 .upload-main-div {
   display: flex;
   justify-content: center;
@@ -7,43 +9,24 @@
   position: relative;
 }
 
-.upload-main-div {
-  position: relative;
-}
-
 .notification {
   position: fixed;
-  top: 0;
+  top: 20px;
   left: 50%;
   transform: translateX(-50%);
-  width: 80%; /* Adjust width as needed */
-  max-width: 600px; /* Set max-width for responsiveness */
-  z-index: 9999; /* Set a high z-index to ensure it's on top of other content */
+  width: 80%;
+  max-width: 600px;
+  z-index: 9999;
   text-align: center;
-  padding-top: 20px;
 }
 
-/* Styles for individual notification messages */
-.notification .message {
+.notification .error,
+.notification .success {
   margin-bottom: 10px;
   padding: 10px;
   border-radius: 5px;
 }
 
-.notification .error {
-  background-color: #ffcccc;
-  color: #cc0000;
-}
-
-.notification .success {
-  background-color: #ccffcc;
-  color: #006600;
-}
-
-.notification .progress {
-  background-color: #cceeff;
-  color: #005580;
-}
 .upload-container {
   display: flex;
   flex-direction: column;
@@ -101,7 +84,6 @@
   margin-bottom: 20px;
 }
 
-/* File upload styles */
 .custom-file-upload-label {
   display: inline-block;
   background-color: #007bff;
@@ -115,10 +97,6 @@
 
 .custom-file-upload-label:hover {
   background-color: #0056b3;
-}
-
-.file-input {
-  display: none; /* Hide the file input element */
 }
 
 .upload-button {
