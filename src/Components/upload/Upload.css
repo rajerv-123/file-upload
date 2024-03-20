@@ -30,13 +30,14 @@
   flex-direction: column;
   align-items: center;
   padding: 20px;
-  background-color: #f0f4f9;
+  /* background-color: #f0f4f9; */
   border-radius: 10px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  /* box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); */
   margin: 20px auto;
   width: 100%;
-  max-width: 500px;
+  /* max-width: 500px; */
   height: auto;
+  padding-top: 60px;
 }
 
 .upload-container h2 {
@@ -190,18 +191,17 @@
 }
 
 .upload-content {
-  background-color: #f0f4f9;
+  /* background-color: #f0f4f9; */
   border-radius: 10px;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
   padding: 20px;
   margin: 20px auto;
-  max-width: 500px;
-  width: 100%;
+width: 600px;
 }
 
 .upload-content h2 {
   margin-bottom: 20px;
-  color: #007bff;
+  /* color: #007bff; */
   text-align: center;
 }
 

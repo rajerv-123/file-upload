@@ -4,11 +4,11 @@ import { FiUploadCloud, FiVideo } from "react-icons/fi";
 import Compressor from "compressorjs";
 import Messages from "../Popups/Messages";
 import CircularProgressWithLabel from "../Popups/CircularProgressWithLabel";
-
-import { Progress, Modal } from "antd"; // Import CircularProgress
+import { Progress, Modal, Input, Radio } from "antd";
 import { connect } from "react-redux";
 import { uploadFile } from "../Redux/actions";
-import { saveAs } from "file-saver";
+import { Upload, Button } from "antd";
+import { UploadOutlined } from "@ant-design/icons";
 
 const UploadFileImageAndVideo = ({ uploadFile }) => {
   const [uploadType, setUploadType] = useState("image");
@@ -26,13 +26,16 @@ const UploadFileImageAndVideo = ({ uploadFile }) => {
     setUploadType(event.target.value);
   };
 
-  const handleFileSelect = (event) => {
-    setSelectedFile(event.target.files[0]);
-    setUploadDisabled(false);
-    setErrorMessage("");
-    setSuccessMessage("");
-    setModalVisible(false);
-    setIsUploaded(false);
+  const handleFileSelect = (info) => {
+    const { file } = info;
+    if (file && file.originFileObj) {
+      setSelectedFile(file.originFileObj);
+      setUploadDisabled(false);
+      setErrorMessage("");
+      setSuccessMessage("");
+      setModalVisible(false);
+      setIsUploaded(false);
+    }
   };
 
   const handleUpload = async () => {
@@ -49,7 +52,7 @@ const UploadFileImageAndVideo = ({ uploadFile }) => {
       setErrorMessage("");
 
       const formData = new FormData();
-      formData.append("file", selectedFile);
+      formData.append("file", selectedFile); // Ensure the field name is "file"
 
       const xhr = new XMLHttpRequest();
 
@@ -60,7 +63,9 @@ const UploadFileImageAndVideo = ({ uploadFile }) => {
         }
       });
 
-      xhr.open("POST", "your_upload_endpoint_here");
+      // Dynamically choose the server URL based on upload type
+      const serverURL = `http://localhost:3001/upload/${uploadType}`;
+      xhr.open("POST", serverURL);
 
       xhr.onload = () => {
         if (xhr.status === 200) {
@@ -225,27 +230,59 @@ const UploadFileImageAndVideo = ({ uploadFile }) => {
   };
 
   const saveOriginalFile = (file, type) => {
-    const savePath = type === "image" ? "C:\\X_File_Image" : "C:\\Y_File_Video";
+    // Adjust the save path according to your server environment
+    const savePath = `http://localhost:3001/upload/${type}`;
     const fileName = file.name.includes(".")
       ? file.name
       : `${file.name}.${getFileExtension(file.type)}`;
-    const reader = new FileReader();
-    reader.onload = function (event) {
-      const blob = new Blob([new Uint8Array(event.target.result)]);
-      saveAs(blob, `${savePath}\\${fileName}`);
-    };
-    reader.readAsArrayBuffer(file);
+    const formData = new FormData();
+    formData.append("file", file, fileName);
+
+    // Send a POST request to your server to save the file
+    fetch(savePath, {
+      method: "POST",
+      body: formData,
+    })
+      .then((response) => {
+        if (response.ok) {
+          // File saved successfully
+          console.log("File saved successfully:", response);
+        } else {
+          // Error saving file
+          console.error("Error saving file:", response);
+        }
+      })
+      .catch((error) => {
+        console.error("Error saving file:", error);
+      });
   };
 
-  const saveCompressedFile = (file, type) => { 
-    // Continued from the previous code
-
-    const savePath =
-      type === "image" ? "C:\\X_COMPRESS_IMAGE" : "C:\\Y_COMPRESS_VIDEO";
+  const saveCompressedFile = (file, type) => {
+    // Adjust the save path according to your server environment
+    const savePath = `http://localhost:3001/upload/${type}`;
     const fileName = file.name.includes(".")
       ? file.name
       : `${file.name}.${getFileExtension(file.type)}`;
-    saveAs(file, `${savePath}\\${fileName}`);
+    const formData = new FormData();
+    formData.append("file", file, fileName);
+
+    // Send a POST request to your server to save the file
+    fetch(savePath, {
+      method: "POST",
+      body: formData,
+    })
+      .then((response) => {
+        if (response.ok) {
+          // File saved successfully
+          console.log("File saved successfully:", response);
+        } else {
+          // Error saving file
+          console.error("Error saving file:", response);
+        }
+      })
+      .catch((error) => {
+        console.error("Error saving file:", error);
+      });
   };
 
   const getFileExtension = (fileType) => {
@@ -273,7 +310,7 @@ const UploadFileImageAndVideo = ({ uploadFile }) => {
             <Progress
               type="circle"
               percent={progressPercent}
-              width={80}
+              size={80}
               format={() => null}
             />
           </div>
@@ -301,50 +338,56 @@ const UploadFileImageAndVideo = ({ uploadFile }) => {
           <div className="upload-content">
             <h2>File Upload</h2>
             <div className="upload-options">
-              <label
-                className={`radio-label ${
-                  uploadType === "image" ? "selected" : ""
-                }`}
-              >
-                <input
+              <label className={` ${uploadType === "image" ? "selected" : ""}`}>
+                <Radio
                   type="radio"
                   value="image"
                   checked={uploadType === "image"}
                   onChange={handleRadioChange}
-                />
-                <FiUploadCloud className="upload-icon" />
-                <span className="upload-text">Image</span>
+                  style={{ fontWeight: "500" }}
+                >
+                  Image
+                </Radio>
               </label>
-              <label
-                className={`radio-label ${
-                  uploadType === "video" ? "selected" : ""
-                }`}
-              >
-                <input
+              <label className={` ${uploadType === "video" ? "selected" : ""}`}>
+                <Radio
                   type="radio"
                   value="video"
                   checked={uploadType === "video"}
                   onChange={handleRadioChange}
-                />
-                <FiVideo className="upload-icon" />
-                <span className="upload-text">Video</span>
+                  style={{ fontWeight: "500" }}
+                >
+                  Video
+                </Radio>
               </label>
             </div>
-            <div className="file-upload">
-              <input
-                type="file"
-                id="file-upload"
-                accept={uploadType === "image" ? "image/*" : "video/*"}
-                onChange={handleFileSelect}
-                value={null}
-              />
-              <button
-                className="upload-button"
+            <div
+              className="file-upload"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexDirection: "column",
+              }}
+            >
+              <div className="file-upload">
+                <Upload
+                  accept={uploadType === "image" ? "image/*" : "video/*"}
+                  fileList={[]}
+                  onChange={handleFileSelect}
+                  value={null}
+                >
+                  <Button icon={<UploadOutlined />}>Upload File</Button>
+                </Upload>
+              </div>
+
+              <Button
+                type="primary"
                 onClick={handleUpload}
                 disabled={uploadDisabled}
               >
                 Upload File
-              </button>
+              </Button>
             </div>
           </div>
         </div>
