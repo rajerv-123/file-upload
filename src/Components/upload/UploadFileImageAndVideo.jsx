@@ -1,10 +1,7 @@
 import React, { useState, useEffect } from "react";
 import "./Upload.css";
-import { FiUploadCloud, FiVideo } from "react-icons/fi";
 import Compressor from "compressorjs";
-import Messages from "../Popups/Messages";
-import CircularProgressWithLabel from "../Popups/CircularProgressWithLabel";
-import { Progress, Modal, Input, Radio } from "antd";
+import { Progress, Modal, Radio } from "antd";
 import { connect } from "react-redux";
 import { uploadFile } from "../Redux/actions";
 import { Upload, Button } from "antd";
@@ -52,24 +49,17 @@ const UploadFileImageAndVideo = ({ uploadFile }) => {
       setErrorMessage("");
 
       const formData = new FormData();
-      formData.append("file", selectedFile); // Ensure the field name is "file"
+      formData.append("file", selectedFile);
+      formData.append("type", uploadType);
 
-      const xhr = new XMLHttpRequest();
+      try {
+        const response = await fetch("http://localhost:3001/upload/original", {
+          method: "POST",
+          body: formData,
+        });
 
-      xhr.upload.addEventListener("progress", (event) => {
-        if (event.lengthComputable) {
-          const percentComplete = (event.loaded / event.total) * 100;
-          setProgressPercent(percentComplete);
-        }
-      });
-
-      // Dynamically choose the server URL based on upload type
-      const serverURL = `http://localhost:3001/upload/${uploadType}`;
-      xhr.open("POST", serverURL);
-
-      xhr.onload = () => {
-        if (xhr.status === 200) {
-          setProgressPercent(100); // Ensure progress is complete
+        if (response.ok) {
+          setProgressPercent(100);
           setSuccessMessage("File uploaded successfully.");
           setIsUploaded(true);
 
@@ -80,16 +70,12 @@ const UploadFileImageAndVideo = ({ uploadFile }) => {
           setErrorMessage("Error uploading file. Please try again.");
           setIsUploaded(false);
         }
-      };
-
-      xhr.onerror = () => {
+      } catch (error) {
+        console.error("Error uploading file:", error);
         setErrorMessage("Error uploading file. Please try again.");
         setIsUploaded(false);
-      };
-
-      xhr.send(formData);
+      }
     } else {
-      // Handling file size exceeding the limit
       setCompressing(true);
       setProgressPercent(0);
 
@@ -101,8 +87,6 @@ const UploadFileImageAndVideo = ({ uploadFile }) => {
         } else if (uploadType === "video") {
           compressedFile = await compressVideo(selectedFile);
         }
-
-        // Check compressed file size and handle accordingly
         const compressedFileSize = compressedFile.size / (1024 * 1024);
         console.log(
           "Compressed file size:",
@@ -128,8 +112,6 @@ const UploadFileImageAndVideo = ({ uploadFile }) => {
               ? "Image compression successful."
               : "Video compression successful."
           );
-
-          // Dispatch action to store file information in Redux
           const fileInfo = {
             name: selectedFile.name,
             size: compressedFileSize.toFixed(2) + " MB",
@@ -137,11 +119,8 @@ const UploadFileImageAndVideo = ({ uploadFile }) => {
             uploadStatus: true,
           };
           uploadFile(fileInfo);
-
-          // Compare file sizes before saving
           const originalSize = fileSize;
           if (originalSize !== compressedFileSize) {
-            // Download the compressed file
             saveCompressedFile(compressedFile, uploadType);
             setIsUploaded(true);
           } else {
@@ -175,21 +154,29 @@ const UploadFileImageAndVideo = ({ uploadFile }) => {
   };
 
   const compressFile = async (file) => {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        new Compressor(file, {
-          quality: 0.6,
-          success(compressedFile) {
-            resolve(compressedFile);
-          },
-          error(err) {
-            reject(err);
-          },
-          progress(percent) {
-            setProgressPercent(percent);
-          },
-        });
-      }, 4000);
+    return new Promise(async (resolve, reject) => {
+      const fileSizeMB = file.size / (1024 * 1024);
+      if (fileSizeMB > 6) {
+        try {
+          const compressedFile = await new Promise((resolve, reject) => {
+            new Compressor(file, {
+              quality: 0.6,
+              success(compressedFile) {
+                resolve(compressedFile);
+              },
+              error(err) {
+                reject(err);
+              },
+              progress(percent) {},
+            });
+          });
+          resolve(compressedFile);
+        } catch (error) {
+          reject(error);
+        }
+      } else {
+        resolve(file);
+      }
     });
   };
 
@@ -198,67 +185,66 @@ const UploadFileImageAndVideo = ({ uploadFile }) => {
       const video = document.createElement("video");
       const canvas = document.createElement("canvas");
       const ctx = canvas.getContext("2d");
+      const reader = new FileReader();
 
-      video.onloadedmetadata = () => {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
+      reader.onload = function (event) {
+        video.src = event.target.result;
 
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        video.onloadedmetadata = () => {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
 
-        canvas.toBlob(
-          (blob) => {
-            resolve(blob);
-          },
-          "video/mp4",
-          0.6
-        );
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+          canvas.toBlob(
+            (blob) => {
+              resolve(blob);
+            },
+            file.type,
+            0.6
+          );
+        };
+
+        video.onerror = (error) => {
+          reject(error);
+        };
       };
 
-      video.onerror = (error) => {
-        reject(error);
-      };
-
-      video.onprogress = (event) => {
-        if (event.lengthComputable) {
-          const percent = (event.loaded / event.total) * 100;
-          setProgressPercent(percent);
-        }
-      };
-
-      video.src = URL.createObjectURL(file);
+      reader.readAsDataURL(file);
     });
   };
 
-  const saveOriginalFile = (file, type) => {
-    // Adjust the save path according to your server environment
-    const savePath = `http://localhost:3001/upload/${type}`;
-    const fileName = file.name.includes(".")
-      ? file.name
-      : `${file.name}.${getFileExtension(file.type)}`;
-    const formData = new FormData();
-    formData.append("file", file, fileName);
+  function saveOriginalFile(file, type) {
+    let savePath = "";
+    if (type === "image") {
+      savePath = "C:/X_File_Image";
+    } else if (type === "video") {
+      savePath = "C:/Y_File_Video";
+    }
 
-    // Send a POST request to your server to save the file
-    fetch(savePath, {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("type", type);
+
+    fetch("http://localhost:3001/upload/original", {
       method: "POST",
       body: formData,
     })
-      .then((response) => {
-        if (response.ok) {
-          // File saved successfully
-          console.log("File saved successfully:", response);
-        } else {
-          // Error saving file
-          console.error("Error saving file:", response);
-        }
+      .then((response) => response.json())
+      .then((data) => {
+        console.log(data.message);
       })
       .catch((error) => {
-        console.error("Error saving file:", error);
+        console.error("Error saving original file:", error);
       });
-  };
+  }
 
   const saveCompressedFile = (file, type) => {
-    // Adjust the save path according to your server environment
+    if (!file || !file.name) {
+      console.error("Invalid file object:", file);
+      return;
+    }
+
     const savePath = `http://localhost:3001/upload/${type}`;
     const fileName = file.name.includes(".")
       ? file.name
@@ -273,10 +259,8 @@ const UploadFileImageAndVideo = ({ uploadFile }) => {
     })
       .then((response) => {
         if (response.ok) {
-          // File saved successfully
           console.log("File saved successfully:", response);
         } else {
-          // Error saving file
           console.error("Error saving file:", response);
         }
       })
@@ -336,7 +320,12 @@ const UploadFileImageAndVideo = ({ uploadFile }) => {
           </div>
 
           <div className="upload-content">
-            <h2>File Upload</h2>
+            <h2
+              style={{ fontFamily: "Arial", fontSize: "24px", color: "#333" }}
+            >
+              File Upload
+            </h2>{" "}
+            {/* Modified */}
             <div className="upload-options">
               <label className={` ${uploadType === "image" ? "selected" : ""}`}>
                 <Radio
@@ -380,6 +369,33 @@ const UploadFileImageAndVideo = ({ uploadFile }) => {
                   <Button icon={<UploadOutlined />}>Upload File</Button>
                 </Upload>
               </div>
+              {selectedFile && (
+                <div
+                  style={{
+                    fontSize: "16px",
+                    marginTop: "20px",
+                    textAlign: "center",
+                    backgroundColor: "#f0f0f0",
+                    borderRadius: "5px",
+                    padding: "10px",
+                    boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+                  }}
+                >
+                  <p style={{ marginBottom: "5px" }}>Selected File:</p>
+                  <p
+                    style={{
+                      fontSize: "18px",
+                      fontWeight: "bold",
+                      color: "#007bff",
+                      marginTop: "5px",
+                    }}
+                  >
+                    {selectedFile.name}
+                  </p>
+                </div>
+              )}
+
+              <br />
 
               <Button
                 type="primary"

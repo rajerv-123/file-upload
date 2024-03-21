@@ -71,19 +71,40 @@ const List = () => {
   ];
 
   return (
-    <div style={{ padding: 20 }}>
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "flex-start",
+        padding: 20,
+      }}
+    >
       <Card
         title="File List"
-        style={{ width: "100%", height: "calc(100vh - 200px)" }}
+        style={{
+          width: "80%",
+          height: "calc(100vh - 200px)",
+          borderRadius: 10,
+          boxShadow: "0px 2px 10px rgba(0, 0, 0, 0.1)",
+          overflow: "hidden",
+        }}
       >
-        <Table
-          dataSource={dataSource}
-          columns={columns}
-          pagination={false}
-          bordered
-          size="middle"
-          scroll={{ y: "calc(100vh - 270px)" }}
-        />
+        <div
+          style={{
+            height: "100%",
+            overflowY: "auto",
+          }}
+        >
+          <Table
+            dataSource={dataSource}
+            columns={columns}
+            pagination={false}
+            bordered
+            size="middle"
+            scroll={{ y: "calc(100vh - 310px)" }}
+            style={{ borderRadius: 10 }}
+          />
+        </div>
       </Card>
     </div>
   );

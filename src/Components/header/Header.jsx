@@ -1,22 +1,14 @@
 import React from "react";
 import "./Header.css";
+import logo from "../../assets/Logo.jpg";
 
 const Header = () => {
   return (
     <div className="header">
       <div className="logo">
-        <h1>Task</h1>
+        <img src={logo} alt="Logo" />
+        <span style={{ fontSize: "1.7rem" }}>FileDrop</span>
       </div>
-      {/* <nav className="navbar">
-        <ul>
-          <li>
-            <a href="#">Upload</a>
-          </li>
-          <li>
-            <a href="#">List</a>
-          </li>
-        </ul>
-      </nav> */}
     </div>
   );
 };
